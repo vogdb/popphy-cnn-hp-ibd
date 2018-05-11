@@ -1,10 +1,11 @@
+import os
 import os.path as path
 
 import numpy as np
 import pandas as pd
 from graph import Graph
 
-data_path = '../data'
+data_path = path.abspath(path.join('.', os.pardir, 'data'))
 
 
 def extract_abundance_data(dataset_path):
@@ -68,9 +69,15 @@ def convert_into_tree_matrix(X, g, f):
     return np.array(result)
 
 
-# test usage example
-if __name__ == "__main__":
-    dataset_name = 'Cirrhosis'
+def prepare_dataset(dataset_name):
+    """
+    Args:
+        dataset_name (str): dataset name as in `data` folder
+
+    return:
+        np.array, np.array: the first is the dataset in CNN-acceptable format, the second is the list of labels of the dataset.
+    """
+
     dataset_path = path.join(data_path, dataset_name)
     X, features = extract_abundance_data(dataset_path)
     y = np.genfromtxt(path.join(dataset_path, 'labels.txt'), dtype=np.str_, delimiter=',')
@@ -85,3 +92,9 @@ if __name__ == "__main__":
     g.build_graph(path.join(dataset_path, 'newick.txt'))
     # Convert abundance matrix into tree matrix
     X_tree_matrix = convert_into_tree_matrix(X, g, features)
+    return X_tree_matrix, y
+
+
+# test usage example
+if __name__ == "__main__":
+    prepare_dataset('Cirrhosis')
