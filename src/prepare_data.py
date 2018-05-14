@@ -87,11 +87,16 @@ def prepare_dataset(dataset_name):
     write_count_matrix(dataset_path, X)
     write_label_dict(dataset_path, pd.factorize(y)[1])
 
-    # Build phylogenetic tree graph
-    g = Graph()
-    g.build_graph(path.join(dataset_path, 'newick.txt'))
-    # Convert abundance matrix into tree matrix
-    X_tree_matrix = convert_into_tree_matrix(X, g, features)
+    tree_matrix_path = path.join(dataset_path, 'tree_matrix.npy')
+    if path.exists(tree_matrix_path):
+        X_tree_matrix = np.load(tree_matrix_path)
+    else:
+        # Build phylogenetic tree graph
+        g = Graph()
+        g.build_graph(path.join(dataset_path, 'newick.txt'))
+        # Convert abundance matrix into tree matrix
+        X_tree_matrix = convert_into_tree_matrix(X, g, features)
+        np.save(tree_matrix_path, X_tree_matrix)
     return X_tree_matrix, y
 
 
