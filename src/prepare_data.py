@@ -81,11 +81,12 @@ def prepare_dataset(dataset_name):
     dataset_path = path.join(data_path, dataset_name)
     X, features = extract_abundance_data(dataset_path)
     y = np.genfromtxt(path.join(dataset_path, 'labels.txt'), dtype=np.str_, delimiter=',')
+    y = pd.factorize(y)
 
     # write some log information
     write_otu(dataset_path, features)
     write_count_matrix(dataset_path, X)
-    write_label_dict(dataset_path, pd.factorize(y)[1])
+    write_label_dict(dataset_path, y[1])
 
     tree_matrix_path = path.join(dataset_path, 'tree_matrix.npy')
     if path.exists(tree_matrix_path):
@@ -97,7 +98,7 @@ def prepare_dataset(dataset_name):
         # Convert abundance matrix into tree matrix
         X_tree_matrix = convert_into_tree_matrix(X, g, features)
         np.save(tree_matrix_path, X_tree_matrix)
-    return X_tree_matrix, y
+    return X_tree_matrix, y[0]
 
 
 # test usage example
