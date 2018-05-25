@@ -1,11 +1,15 @@
 import argparse
+import json
+
 import keras as keras
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 import numpy as np
+import os
 
 from keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout, regularizers
 from keras.optimizers import SGD
-from sklearn.model_selection import StratifiedKFold
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import StratifiedKFold, KFold, cross_val_score
 
 from prepare_data import prepare_dataset
 
@@ -73,44 +77,73 @@ def create_popphy_cnn(input_data):
     return model
 
 
+def train_plain(X, y):
+    kfold = StratifiedKFold(n_splits=splits_num, shuffle=True)
+    kfold_split = kfold.split(X, y)
+    # format to Keras input shape
+    X = X.reshape(X.shape + (1,))
+    y = keras.utils.to_categorical(y, num_classes=2)
+    val_acc_list = []
+    val_loss_list = []
+
+    for index, (train_indices, val_indices) in enumerate(kfold_split):
+        X_train, X_val = X[train_indices], X[val_indices]
+        y_train, y_val = y[train_indices], y[val_indices]
+
+        model = create_popphy_cnn(X)
+        best_model_filepath = os.path.join(os.pardir, 'result', 'cirrhosis' + str(index) + '.hdf5')
+        callback_list = [
+            ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max')
+        ]
+        history = model.fit(X_train, y_train, epochs=epochs_num, batch_size=batch_size, verbose=0,
+                            validation_data=(X_val, y_val), callbacks=callback_list)
+
+        model.load_weights(best_model_filepath)
+        score = model.evaluate(X_val, y_val)
+        val_loss_list.append(score[0])
+        val_acc_list.append(score[1])
+
+        history_filepath = os.path.join(os.pardir, 'result', 'cirrhosis_hist' + str(index) + '.txt')
+        with open(history_filepath, 'w') as hist_file:
+            json.dump(history.history, hist_file)
+
+    val_acc_list = np.array(val_acc_list)
+    val_loss_list = np.array(val_loss_list)
+    print '\n######################################################################'
+    print 'val_acc_list mean and std: ', val_acc_list.mean(), val_acc_list.std()
+    print 'val_loss_list mean and std: ', val_loss_list.mean(), val_loss_list.std()
+
+
+def train_cross_val_score(X, y):
+    kfold = StratifiedKFold(n_splits=splits_num, shuffle=True)
+    kfold_split = kfold.split(X, y)
+    # format to Keras input shape
+    X = X.reshape(X.shape + (1,))
+    y = keras.utils.to_categorical(y, num_classes=2)
+
+    X_stratified = []
+    y_stratified = []
+    for index, (train_indices, val_indices) in enumerate(kfold_split):
+        X_val = X[val_indices]
+        y_val = y[val_indices]
+        X_stratified.append(X_val)
+        y_stratified.append(y_val)
+
+    X_stratified = np.concatenate(tuple(X_stratified))
+    y_stratified = np.concatenate(tuple(y_stratified))
+
+    # cc = functools.partial(create_popphy_cnn, X_stratified)
+    create_cnn = lambda: create_popphy_cnn(X_stratified)
+    estimator = KerasClassifier(build_fn=create_cnn, epochs=epochs_num,
+                                batch_size=batch_size, verbose=2)
+    kfold = KFold(n_splits=splits_num)
+    results = cross_val_score(estimator, X_stratified, y_stratified, cv=kfold)
+    print results
+
+
 X, y = prepare_dataset(dataset)
-
-kfold = StratifiedKFold(n_splits=splits_num, shuffle=True)
-kfold_split = kfold.split(X, y)
-# format to Keras input shape
-X = X.reshape(X.shape + (1,))
-y = keras.utils.to_categorical(y, num_classes=2)
-val_acc_list = []
-val_loss_list = []
-
-for index, (train_indices, val_indices) in enumerate(kfold_split):
-    X_train, X_val = X[train_indices], X[val_indices]
-    y_train, y_val = y[train_indices], y[val_indices]
-
-    model = create_popphy_cnn(X)
-    best_model_filepath = 'cirrhosis' + str(index) + '.hdf5'
-    callback_list = [
-        EarlyStopping(monitor='val_acc', patience=10, verbose=0, mode='max'),
-        ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max')
-    ]
-    history = model.fit(X_train, y_train, epochs=epochs_num, batch_size=batch_size, verbose=0,
-                        validation_data=(X_val, y_val), callbacks=callback_list)
-
-    model.load_weights(best_model_filepath)
-    score = model.evaluate(X_val, y_val)
-    val_loss_list.append(score[0])
-    val_acc_list.append(score[1])
-
-    print 'split ', index
-    for key, val in history.history.items():
-        print '\t' + key + ':', val[-5:]
-
-val_acc_list = np.array(val_acc_list)
-val_loss_list = np.array(val_loss_list)
-print '\n######################################################################'
-print 'val_acc_list mean and std: ', val_acc_list.mean(), val_acc_list.std()
-print 'val_loss_list mean and std: ', val_loss_list.mean(), val_loss_list.std()
+# train_cross_val_score(X, y)
+train_plain(X, y)
 
 
-# TODO stratified shuffle. When we stratifiedly shuffle data first and only after use `to_categorical`.
 # TODO use a `binary` classifier as an alternative.
