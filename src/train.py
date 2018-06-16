@@ -180,4 +180,3 @@ train_plain(X, y)
 
 
 # TODO use a `binary` classifier as an alternative.
-# TODO simple dataset and show that both trains train_cross_val_score and train_plain work equally
