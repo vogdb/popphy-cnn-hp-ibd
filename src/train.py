@@ -1,4 +1,3 @@
-import argparse
 import os
 
 import keras as keras
@@ -11,21 +10,9 @@ from sklearn.model_selection import StratifiedKFold, KFold, cross_val_score
 
 from prepare_data import prepare_dataset
 import create_model
+import command_args
 
-parser = argparse.ArgumentParser(description='Prepare Data')
-parser.add_argument('-d', '--dataset', default='Cirrhosis', help='Name of dataset in data folder.')
-parser.add_argument('-n', '--splits', default=10, type=int, help='Number of cross validated splits.')
-parser.add_argument('-s', '--sets', default=10, type=int, help='Number of datasets to generate')
-parser.add_argument('-e', '--epochs', default=400, type=int, help='Number of epochs.')
-parser.add_argument('-b', '--batch_size', default=1, type=int, help='Batch Size')
-args = parser.parse_args()
-
-sets_num = args.sets
-splits_num = args.splits
-epochs_num = args.epochs
-batch_size = args.batch_size
-dataset = args.dataset
-
+args = command_args.parse()
 result_filepath = os.path.join(os.pardir, 'result')
 
 
@@ -60,7 +47,7 @@ def plain_train_metrics():
 
 
 def train_plain(X, y):
-    kfold = StratifiedKFold(n_splits=splits_num, shuffle=True)
+    kfold = StratifiedKFold(n_splits=args.splits, shuffle=True)
     kfold_split = kfold.split(X, y)
     # format to Keras input shape
     X = X.reshape(X.shape + (1,))
@@ -78,7 +65,7 @@ def train_plain(X, y):
             ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max'),
             metrics
         ]
-        history = model.fit(X_train, y_train, epochs=epochs_num, batch_size=batch_size, verbose=0,
+        history = model.fit(X_train, y_train, epochs=args.epochs, batch_size=args.batch_size, verbose=0,
                             validation_data=(X_val, y_val), callbacks=callback_list)
 
         model.load_weights(best_model_filepath)
@@ -98,7 +85,7 @@ def train_plain(X, y):
 
 
 def train_cross_val_score(X, y):
-    kfold = StratifiedKFold(n_splits=splits_num, shuffle=True)
+    kfold = StratifiedKFold(n_splits=args.splits, shuffle=True)
     kfold_split = kfold.split(X, y)
     # format to Keras input shape
     X = X.reshape(X.shape + (1,))
@@ -117,13 +104,13 @@ def train_cross_val_score(X, y):
 
     # cc = functools.partial(create_popphy_cnn, X_stratified)
     create_cnn = lambda: create_model.onehot_model(X_stratified)
-    estimator = KerasClassifier(build_fn=create_cnn, epochs=epochs_num,
-                                batch_size=batch_size, verbose=2)
-    kfold = KFold(n_splits=splits_num)
+    estimator = KerasClassifier(build_fn=create_cnn, epochs=args.epochs,
+                                batch_size=args.batch_size, verbose=2)
+    kfold = KFold(n_splits=args.splits)
     results = cross_val_score(estimator, X_stratified, y_stratified, cv=kfold)
     print results
 
 
-X, y = prepare_dataset(dataset)
+X, y = prepare_dataset(args.dataset)
 # train_cross_val_score(X, y)
 train_plain(X, y)

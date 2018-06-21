@@ -42,18 +42,18 @@ def shared_model_pre(input_data):
     return model
 
 
-def regularize_model(model):
+def regularize_model(model, regularizer=regularizers.l2(0.1)):
     for layer in model.layers:
         if hasattr(layer, 'kernel_regularizer'):
-            layer.kernel_regularizer = regularizers.l2(0.1)
+            layer.kernel_regularizer = regularizer
 
 
-def binary_model(input_data):
+def binary_model(input_data, lr=0.001, regularizer=regularizers.l2(0.1)):
     model = shared_model_pre(input_data)
     model.add(Dense(1, activation='sigmoid'))
-    regularize_model(model)
+    regularize_model(model, regularizer)
 
-    sgd = SGD(lr=0.001)
+    sgd = SGD(lr=lr)
     model.compile(optimizer=sgd, loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
