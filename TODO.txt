@@ -1,0 +1,8 @@
+According to their priorities:
+
+1. Important features extraction.
+
+2. See how Graph works actually. build_graph populates phylogenteic tree with abundance data. See how it can be improved?
+
+3. Possibly give it entirely to Jenya. How to build newick.txt from abundance file programmatically by a lib like http://etetoolkit.org/, http://biopython.org/, http://dendropy.org/
+   Also see https://www.biostars.org/p/248447/ as a start point.
