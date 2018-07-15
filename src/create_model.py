@@ -4,8 +4,8 @@ from keras.optimizers import SGD
 
 
 def shared_model_pre(input_data):
-    rows = input_data.shape[1]  # must be as image Height
-    cols = input_data.shape[2]  # must be as image Width
+    rows = input_data.shape[1]  # must be as input Height
+    cols = input_data.shape[2]  # must be as input Width
 
     model = keras.models.Sequential()
 
