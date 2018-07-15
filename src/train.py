@@ -4,9 +4,8 @@ import keras as keras
 import numpy as np
 import pandas as pd
 from keras.callbacks import ModelCheckpoint
-from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, accuracy_score
-from sklearn.model_selection import StratifiedKFold, KFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold
 
 from prepare_data import prepare_dataset
 import create_model
@@ -16,7 +15,7 @@ args = command_args.parse()
 result_filepath = os.path.join(os.pardir, 'result')
 
 
-def plain_train_metrics():
+def train_metrics():
     class Metrics(keras.callbacks.Callback):
         def on_train_begin(self, logs={}):
             self._data = []
@@ -46,7 +45,7 @@ def plain_train_metrics():
     return Metrics()
 
 
-def train_plain(X, y):
+def train(X, y):
     kfold = StratifiedKFold(n_splits=args.splits, shuffle=True)
     kfold_split = kfold.split(X, y)
     # format to Keras input shape
@@ -60,7 +59,7 @@ def train_plain(X, y):
 
         model = create_model.binary_model(X)
         best_model_filepath = os.path.join(result_filepath, 'cirrhosis' + str(index) + '.hdf5')
-        metrics = plain_train_metrics()
+        metrics = train_metrics()
         callback_list = [
             ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max'),
             metrics
@@ -84,33 +83,5 @@ def train_plain(X, y):
     best_metrics_df.to_csv(best_metrics_filepath, header=True, sep=';', index=False)
 
 
-def train_cross_val_score(X, y):
-    kfold = StratifiedKFold(n_splits=args.splits, shuffle=True)
-    kfold_split = kfold.split(X, y)
-    # format to Keras input shape
-    X = X.reshape(X.shape + (1,))
-    # y = keras.utils.to_categorical(y, num_classes=2)
-
-    X_stratified = []
-    y_stratified = []
-    for index, (train_indices, val_indices) in enumerate(kfold_split):
-        X_val = X[val_indices]
-        y_val = y[val_indices]
-        X_stratified.append(X_val)
-        y_stratified.append(y_val)
-
-    X_stratified = np.concatenate(tuple(X_stratified))
-    y_stratified = np.concatenate(tuple(y_stratified))
-
-    # cc = functools.partial(create_popphy_cnn, X_stratified)
-    create_cnn = lambda: create_model.onehot_model(X_stratified)
-    estimator = KerasClassifier(build_fn=create_cnn, epochs=args.epochs,
-                                batch_size=args.batch_size, verbose=2)
-    kfold = KFold(n_splits=args.splits)
-    results = cross_val_score(estimator, X_stratified, y_stratified, cv=kfold)
-    print results
-
-
 X, y = prepare_dataset(args.dataset)
-# train_cross_val_score(X, y)
-train_plain(X, y)
+train(X, y)
