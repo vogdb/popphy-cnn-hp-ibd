@@ -12,7 +12,7 @@ import create_model
 import command_args
 
 args = command_args.parse()
-result_filepath = os.path.join(os.pardir, 'result')
+result_dir = os.path.join(os.pardir, 'result')
 
 
 def train_metrics():
@@ -45,6 +45,18 @@ def train_metrics():
     return Metrics()
 
 
+def create_model_dir(result_dir, index):
+    model_dir = os.path.join(result_dir, args.dataset, str(index))
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    return model_dir
+
+
+def save_data_indices(model_dir, train_indices, val_indices):
+    indeces_filepath = os.path.join(model_dir, 'data_indeces')
+    np.savez(indeces_filepath, train=train_indices, val=val_indices)
+
+
 def train(X, y):
     kfold = StratifiedKFold(n_splits=args.splits, shuffle=True)
     kfold_split = kfold.split(X, y)
@@ -57,8 +69,10 @@ def train(X, y):
         X_train, X_val = X[train_indices], X[val_indices]
         y_train, y_val = y[train_indices], y[val_indices]
 
+        model_dir = create_model_dir(result_dir, index)
+        save_data_indices(model_dir, train_indices, val_indices)
         model = create_model.binary_model(X)
-        best_model_filepath = os.path.join(result_filepath, 'cirrhosis' + str(index) + '.hdf5')
+        best_model_filepath = os.path.join(model_dir, 'network.hdf5')
         metrics = train_metrics()
         callback_list = [
             ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max'),
@@ -70,7 +84,7 @@ def train(X, y):
         model.load_weights(best_model_filepath)
         best_metrics_list.append(metrics.calculate(model, X_val, y_val))
 
-        history_filepath = os.path.join(result_filepath, 'cirrhosis_hist' + str(index) + '.csv')
+        history_filepath = os.path.join(model_dir, 'history.csv')
         with open(history_filepath, 'w') as hist_file:
             metrics_df = pd.DataFrame(metrics.get_data())
             metrics_df.drop(['val_acc'], axis=1, inplace=True)  # it's duplicated in history_df
@@ -79,7 +93,7 @@ def train(X, y):
             train_df.to_csv(hist_file, header=True, sep=';', index=False)
 
     best_metrics_df = pd.DataFrame(best_metrics_list)
-    best_metrics_filepath = os.path.join(result_filepath, 'best_metrics.csv')
+    best_metrics_filepath = os.path.join(result_dir, 'best_metrics.csv')
     best_metrics_df.to_csv(best_metrics_filepath, header=True, sep=';', index=False)
 
 
