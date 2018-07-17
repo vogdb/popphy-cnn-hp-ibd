@@ -7,9 +7,10 @@ from keras.callbacks import ModelCheckpoint
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, accuracy_score
 from sklearn.model_selection import StratifiedKFold
 
-from prepare_data import prepare_dataset
-import create_model
 import command_args
+import create_model
+from prepare_data import prepare_dataset
+from util import create_dir
 
 args = command_args.parse()
 result_dir = os.path.join(os.pardir, 'result')
@@ -45,16 +46,9 @@ def train_metrics():
     return Metrics()
 
 
-def create_model_dir(result_dir, index):
-    model_dir = os.path.join(result_dir, args.dataset, str(index))
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    return model_dir
-
-
 def save_data_indices(model_dir, train_indices, val_indices):
-    indeces_filepath = os.path.join(model_dir, 'data_indeces')
-    np.savez(indeces_filepath, train=train_indices, val=val_indices)
+    indices_filepath = os.path.join(model_dir, 'data_indices')
+    np.savez(indices_filepath, train=train_indices, val=val_indices)
 
 
 def train(X, y):
@@ -64,37 +58,38 @@ def train(X, y):
     X = X.reshape(X.shape + (1,))
     # y = keras.utils.to_categorical(y, num_classes=2)
     best_metrics_list = []
+    dataset_result_dir = create_dir(result_dir, args.dataset)
 
     for index, (train_indices, val_indices) in enumerate(kfold_split):
         X_train, X_val = X[train_indices], X[val_indices]
         y_train, y_val = y[train_indices], y[val_indices]
 
-        model_dir = create_model_dir(result_dir, index)
+        model_dir = create_dir(dataset_result_dir, str(index))
         save_data_indices(model_dir, train_indices, val_indices)
         model = create_model.binary_model(X)
-        best_model_filepath = os.path.join(model_dir, 'network.hdf5')
+        best_model_file = os.path.join(model_dir, 'network.hdf5')
         metrics = train_metrics()
         callback_list = [
-            ModelCheckpoint(best_model_filepath, save_best_only=True, monitor='val_acc', mode='max'),
+            ModelCheckpoint(best_model_file, save_best_only=True, monitor='val_acc', mode='max'),
             metrics
         ]
         history = model.fit(X_train, y_train, epochs=args.epochs, batch_size=args.batch_size, verbose=0,
                             validation_data=(X_val, y_val), callbacks=callback_list)
 
-        model.load_weights(best_model_filepath)
+        model.load_weights(best_model_file)
         best_metrics_list.append(metrics.calculate(model, X_val, y_val))
 
         history_filepath = os.path.join(model_dir, 'history.csv')
-        with open(history_filepath, 'w') as hist_file:
+        with open(history_filepath, 'w') as history_file:
             metrics_df = pd.DataFrame(metrics.get_data())
             metrics_df.drop(['val_acc'], axis=1, inplace=True)  # it's duplicated in history_df
             history_df = pd.DataFrame(history.history)
             train_df = pd.concat([history_df, metrics_df], axis=1)
-            train_df.to_csv(hist_file, header=True, sep=';', index=False)
+            train_df.to_csv(history_file, header=True, sep=';', index=False)
 
     best_metrics_df = pd.DataFrame(best_metrics_list)
-    best_metrics_filepath = os.path.join(result_dir, 'best_metrics.csv')
-    best_metrics_df.to_csv(best_metrics_filepath, header=True, sep=';', index=False)
+    best_metrics_file = os.path.join(dataset_result_dir, 'best_metrics.csv')
+    best_metrics_df.to_csv(best_metrics_file, header=True, sep=';', index=False)
 
 
 X, y = prepare_dataset(args.dataset)
