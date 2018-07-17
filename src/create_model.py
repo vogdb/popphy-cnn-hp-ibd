@@ -31,14 +31,14 @@ def shared_model_pre(input_data):
     # FullyConnectedLayer(activation_fn=ReLU, n_in=64*1*5, n_out=1024, p_dropout=0.5),
     model.add(Flatten())
     model.add(Dropout(0.5))
-    model.add(Dense(1024, activation='relu'))
+    # model.add(Dense(1024, activation='relu'))
 
     # FullyConnectedLayer( n_in=1024, n_out=1024, activation_fn=ReLU, p_dropout=0.5),
-    model.add(Dropout(0.5))
-    model.add(Dense(1024, activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Dense(1024, activation='relu'))
 
     # SoftmaxLayer(n_in=1024, n_out=2, p_dropout=0.5)], mini_batch_size, c_prob)
-    model.add(Dropout(0.5))
+    # model.add(Dropout(0.5))
     return model
 
 
