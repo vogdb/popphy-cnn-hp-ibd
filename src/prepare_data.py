@@ -36,22 +36,17 @@ def extract_abundance_data(dataset_path):
 
 def write_otu(dataset_path, otu_list):
     otu_path = path.join(dataset_path, 'otu.csv')
-    with open(otu_path, 'w') as otu_file:
-        otu_file.write(','.join(map(str, otu_list)))
+    np.savetxt(otu_path, otu_list, fmt='%s')
 
 
 def write_count_matrix(dataset_path, count_matrix):
     matrix_path = path.join(dataset_path, 'count_matrix.csv')
-    with open(matrix_path, 'w') as matrix_file:
-        for i in range(0, len(count_matrix)):
-            matrix_file.write(','.join(map(str, count_matrix[i])))
-            matrix_file.write('\n')
+    np.savetxt(matrix_path, count_matrix, fmt='%.5f')
 
 
 def write_label_dict(dataset_path, y_dict):
     label_ref_path = path.join(dataset_path, 'label_reference.txt')
-    with open(label_ref_path, 'w') as label_ref_file:
-        label_ref_file.write(str(y_dict))
+    np.savetxt(label_ref_path, y_dict, fmt='%s')
 
 
 def extract_otu_cirrhosis(split):
