@@ -7,7 +7,6 @@ import keras
 import keras.backend as K
 import numpy as np
 import pandas as pd
-from theano.tensor.nnet import conv2d
 
 from graph import Graph
 from prepare_data import data_path
@@ -46,8 +45,6 @@ dataset_path = os.path.join(data_path, args.dataset)
 g = Graph()
 g.build_graph(os.path.join(dataset_path, 'newick.txt'))
 ref = g.get_ref()
-
-ref_val = np.zeros((ref.shape[0], ref.shape[1]))
 num_nodes = g.get_node_count()
 
 rankings = {}
@@ -125,9 +122,8 @@ for roc in range(0, num_sets * num_splits):
                 for l in range(0, int(round(theta1 * num_nodes))):
                     max_list[i][k][maximums[l]] += 1
 
-    np.savetxt('brutal_feature_extraction/max_list_0_{}{}.txt'.format(set, cv), max_list[0])
-    np.savetxt('brutal_feature_extraction/max_list_1_{}{}.txt'.format(set, cv), max_list[1])
-
+    # np.savetxt('brutal_feature_extraction/max_list_0_{}{}.txt'.format(set, cv), max_list[0], fmt='%u')
+    # np.savetxt('brutal_feature_extraction/max_list_1_{}{}.txt'.format(set, cv), max_list[1], fmt='%u')
     d = {"OTU": otus, "Max Score": np.zeros(len(otus)), "Cumulative Score": np.zeros(len(otus))}
     df = pd.DataFrame(data=d)
     results = {}
@@ -182,8 +178,8 @@ for roc in range(0, num_sets * num_splits):
                                     results[i].loc[ref_window[m, n], "Max Score"] = count[m, n]
                                     results[i].loc[ref_window[m, n], "Cumulative Score"] = count[m, n]
 
-    results[0].to_csv('brutal_feature_extraction/results_0_{}{}'.format(set, cv), header=True, sep=';', index=False)
-    results[1].to_csv('brutal_feature_extraction/results_1_{}{}'.format(set, cv), header=True, sep=';', index=False)
+    results[0].to_csv('brutal_feature_extraction/results_0_{}{}'.format(set, cv), header=True, sep=';', index=True)
+    results[1].to_csv('brutal_feature_extraction/results_1_{}{}'.format(set, cv), header=True, sep=';', index=True)
     diff = {}
 
     for i in range(0, num_classes):
