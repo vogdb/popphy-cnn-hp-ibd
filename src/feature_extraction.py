@@ -91,7 +91,7 @@ def get_feature_map_max_indexes(feature_maps, y):
     return max_indexes
 
 
-def get_max_active_features(feature_map_max_indexes, feature_maps, X, y, w):
+def get_max_active_features(feature_map_max_indexes, feature_map_width, X, y, w):
     classes = get_classes(y)
     X_by_class = split_by_class(X, y)
 
@@ -121,8 +121,8 @@ def get_max_active_features(feature_map_max_indexes, feature_maps, X, y, w):
                 # Find the row and column location and isolate reference window
                 loc = loc_list[k]
                 if feature_map_max_indexes[i][j][loc] > int(round(len(X_by_class[i]) * theta2)):
-                    row = loc / feature_maps.shape[2]
-                    col = loc % feature_maps.shape[2]
+                    row = loc / feature_map_width
+                    col = loc % feature_map_width
                     ref_window = ref[row:row + w_row, col:col + w_col]
                     count = np.zeros((w_row, w_col))
 
@@ -160,16 +160,12 @@ def feature_map_stats(model_dir, i):
     feature_maps = get_feature_maps(model, X)
     feature_map_max_indexes = get_feature_map_max_indexes(feature_maps, y)
     w = model.layers[0].get_weights()[0]
-    max_active_features = get_max_active_features(feature_map_max_indexes, feature_maps, X, y, w)
-    # max_active_features[0].to_csv('feature_extraction/results_0_0{}'.format(i), header=True, sep=';', index=True)
-    # max_active_features[1].to_csv('feature_extraction/results_1_0{}'.format(i), header=True, sep=';', index=True)
-
-    raise SystemExit(3)
+    max_active_features = get_max_active_features(feature_map_max_indexes, feature_maps.shape[2], X, y, w)
+    # raise SystemExit(3)
 
 
 result_dir = os.path.join(os.pardir, 'result', '400e_model_nofc', args.dataset)
-file = '0'
-# for file in os.listdir(result_dir):
-#     if file.isdigit():
-model_dir = os.path.join(result_dir, file)  # TODO file instead of '0'
-feature_map_stats(model_dir, int(file))
+for file in os.listdir(result_dir):
+    if file.isdigit():
+        model_dir = os.path.join(result_dir, file)
+        feature_map_stats(model_dir, int(file))
