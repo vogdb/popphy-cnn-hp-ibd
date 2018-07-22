@@ -18,8 +18,6 @@ theta2 = 0.3  # 0\0.8
 # Get reference graph
 g = Graph()
 g.build_graph(os.path.join(data_path, args.dataset, 'newick.txt'))
-ref = g.get_ref()
-num_nodes = g.get_node_count()
 
 
 def get_feature_maps(model, input):
@@ -56,10 +54,10 @@ def get_classes(y):
 def split_by_class(data, y):
     classes = get_classes(y)
     result = {}
-    for klass in classes:
-        result[klass] = []
-    for i, y_i in enumerate(y):
-        result[y_i].append(data[i])
+    for class_id in classes:
+        result[class_id] = []
+    for i, class_id in enumerate(y):
+        result[class_id].append(data[i])
     return result
 
 
@@ -81,23 +79,28 @@ def get_feature_map_max_indexes(feature_maps, y):
     feature_map_flat_size = feature_maps.shape[1] * feature_maps.shape[2]
 
     # count the top `l` max indices for each class and each feature map
+    g_num_nodes = g.get_node_count()
     max_indexes = np.zeros((len(classes), feature_maps_num, feature_map_flat_size))
     for klass in classes:
         for sample in feature_maps_by_class[klass]:
             for feature_i in range(0, feature_maps_num):
                 maximums = np.argsort(sample[:, :, feature_i].flatten())[::-1]
-                for l in range(0, int(round(theta1 * num_nodes))):
+                for l in range(0, int(round(theta1 * g_num_nodes))):
                     max_indexes[klass][feature_i][maximums[l]] += 1
     return max_indexes
+
+
+def get_features_stats_df():
+    otu_list = load_otu_list()
+    d = {'OTU': otu_list, 'Max Score': np.zeros(len(otu_list)), 'Cumulative Score': np.zeros(len(otu_list))}
+    return pd.DataFrame(data=d)
 
 
 def get_max_active_features(feature_map_max_indexes, feature_map_width, X, y, w):
     classes = get_classes(y)
     X_by_class = split_by_class(X, y)
-
-    otu_list = load_otu_list()
-    d = {'OTU': otu_list, 'Max Score': np.zeros(len(otu_list)), 'Cumulative Score': np.zeros(len(otu_list))}
-    df = pd.DataFrame(data=d)
+    df = get_features_stats_df()
+    g_ref = g.get_ref()
     results = {}
 
     for i in classes:
@@ -123,7 +126,7 @@ def get_max_active_features(feature_map_max_indexes, feature_map_width, X, y, w)
                 if feature_map_max_indexes[i][j][loc] > int(round(len(X_by_class[i]) * theta2)):
                     row = loc / feature_map_width
                     col = loc % feature_map_width
-                    ref_window = ref[row:row + w_row, col:col + w_col]
+                    ref_window = g_ref[row:row + w_row, col:col + w_col]
                     count = np.zeros((w_row, w_col))
 
                     # Calculate the proportion of the contribution of each input pixel to the convolution with the absolute value of weights
@@ -152,6 +155,73 @@ def get_max_active_features(feature_map_max_indexes, feature_map_width, X, y, w)
     return results
 
 
+def calc_features_scores(max_active_features, y):
+    classes = get_classes(y)
+    diff = {}
+    df = get_features_stats_df()
+
+    for i in classes:
+        diff[i] = df.set_index('OTU')
+        for j in max_active_features[i].index:
+            for k in classes:
+                if i != k:
+                    if j in max_active_features[k].index:
+                        diff[i].loc[j, 'Max Score'] = max_active_features[i].loc[j, 'Max Score'] - \
+                                                      max_active_features[k].loc[j, 'Max Score']
+                        diff[i].loc[j, 'Cumulative Score'] = max_active_features[i].loc[j, 'Cumulative Score'] - \
+                                                             max_active_features[k].loc[
+                                                                 j, 'Cumulative Score']
+                    else:
+                        diff[i].loc[j, 'Max Score'] = max_active_features[i].loc[j, 'Max Score']
+                        diff[i].loc[j, 'Cumulative Score'] = max_active_features[i].loc[j, 'Cumulative Score']
+    return diff
+
+
+def load_label_ref():
+    return np.loadtxt(
+        os.path.join(data_path, args.dataset, 'label_reference.txt'),
+        dtype=str
+    )
+
+
+def write_features_scores(rankings, scores):
+    medians = {}
+    class_labels = load_label_ref()
+
+    for class_id, _ in enumerate(class_labels):
+        medians[class_id] = {}
+        for j in rankings[class_id]:
+            medians[class_id][j] = np.median(rankings[class_id][j])
+
+        f = open('feature_extraction/' + class_labels[class_id] + '_ranklist.out', 'w')
+        for m in sorted(medians[class_id], key=medians[class_id].__getitem__):
+            f.write(m + ',')
+        f.close()
+
+        f = open('feature_extraction/' + class_labels[class_id] + '_medians.out', 'w')
+        for m in rankings[class_id]:
+            f.write(m + '\t' + str(rankings[class_id][m]) + '\n')
+        f.close()
+
+        f = open('feature_extraction/' + class_labels[class_id] + '_scores.out', 'w')
+        for m in scores[class_id]:
+            f.write(m + '\t' + str(scores[class_id][m]) + '\n')
+        f.close()
+
+
+def init_feature_scores(g_node_names):
+    rankings = {}
+    scores = {}
+    class_labels = load_label_ref()
+    for class_id, _ in enumerate(class_labels):
+        rankings[class_id] = {}
+        scores[class_id] = {}
+        for j in g_node_names:
+            rankings[class_id][j] = []
+            scores[class_id][j] = []
+    return rankings, scores
+
+
 def feature_map_stats(model_dir, i):
     model = load_model(model_dir)
     X, y, _, _ = load_data(model_dir)
@@ -160,12 +230,27 @@ def feature_map_stats(model_dir, i):
     feature_maps = get_feature_maps(model, X)
     feature_map_max_indexes = get_feature_map_max_indexes(feature_maps, y)
     w = model.layers[0].get_weights()[0]
-    max_active_features = get_max_active_features(feature_map_max_indexes, feature_maps.shape[2], X, y, w)
-    # raise SystemExit(3)
+    return get_max_active_features(feature_map_max_indexes, feature_maps.shape[2], X, y, w)
 
 
-result_dir = os.path.join(os.pardir, 'result', '400e_model_nofc', args.dataset)
-for file in os.listdir(result_dir):
-    if file.isdigit():
-        model_dir = os.path.join(result_dir, file)
-        feature_map_stats(model_dir, int(file))
+def main():
+    result_dir = os.path.join(os.pardir, 'result', '400e_model_nofc', args.dataset)
+    g_node_names = g.get_dictionary()
+    rankings, scores = init_feature_scores(g_node_names)
+    for file in os.listdir(result_dir):
+        if file.isdigit():
+            model_dir = os.path.join(result_dir, file)
+            stats = feature_map_stats(model_dir, int(file))
+            for class_id in stats:
+                rank = stats[class_id]['Max Score'].rank(ascending=False)
+                for j in g_node_names:
+                    if j in rank.index:
+                        rankings[class_id][j].append(rank.loc[j])
+                        scores[class_id][j].append(stats[class_id].loc[j, 'Max Score'])
+                    else:
+                        rankings[class_id][j].append(rank.shape[0] + 1)
+                        scores[class_id][j].append(0)
+    write_features_scores(rankings, scores)
+
+
+main()
