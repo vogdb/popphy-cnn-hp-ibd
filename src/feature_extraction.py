@@ -9,6 +9,7 @@ import command_args
 from graph import Graph
 from prepare_data import data_path
 from prepare_data import prepare_dataset
+from util import create_dir
 
 args = command_args.parse()
 
@@ -187,7 +188,7 @@ def load_label_ref():
 def write_features_scores(rankings, scores, result_dir):
     medians = {}
     class_labels = load_label_ref()
-    features_dir = os.path.join(result_dir, 'features')
+    features_dir = create_dir(result_dir, 'features')
 
     for class_id, _ in enumerate(class_labels):
         medians[class_id] = {}
@@ -231,7 +232,8 @@ def feature_map_stats(model_dir, i):
     feature_maps = get_feature_maps(model, X)
     feature_map_max_indexes = get_feature_map_max_indexes(feature_maps, y)
     w = model.layers[0].get_weights()[0]
-    return get_max_active_features(feature_map_max_indexes, feature_maps.shape[2], X, y, w)
+    max_active_features = get_max_active_features(feature_map_max_indexes, feature_maps.shape[2], X, y, w)
+    return calc_features_scores(max_active_features, y)
 
 
 def main():
