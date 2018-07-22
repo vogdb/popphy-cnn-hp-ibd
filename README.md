@@ -7,6 +7,12 @@ This is an application of [PopPhy-CNN](https://github.com/derekreiman/PopPhy-CNN
 - Python 2.7.14
 - Libraries: `pip install theano numpy pandas joblib xmltodict untangle sklearn network`
 
+## Input data
+Input data must be represented as a dataset. Datasets are stored in respective folders under the data directory. Each dataset needs the following:
+  - `abundance.txt`. A space separated file representing the abundance table. Each row should represent the abundance of an OTU and each column should represent a sample.
+  - `labels.txt`. Class labels of samples that ordered in the same way as in `abundance.txt`. There should be one label per line.            
+  - `newick.txt`. It is the newick formatted text file for the phylogenetic taxonomic tree.             
+
 ## Training
 
 To train the network please use `src/train.py`. You can run it with several arguments. All of them are used in the command below:
