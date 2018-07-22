@@ -184,26 +184,27 @@ def load_label_ref():
     )
 
 
-def write_features_scores(rankings, scores):
+def write_features_scores(rankings, scores, result_dir):
     medians = {}
     class_labels = load_label_ref()
+    features_dir = os.path.join(result_dir, 'features')
 
     for class_id, _ in enumerate(class_labels):
         medians[class_id] = {}
         for j in rankings[class_id]:
             medians[class_id][j] = np.median(rankings[class_id][j])
 
-        f = open('feature_extraction/' + class_labels[class_id] + '_ranklist.out', 'w')
+        f = open(os.path.join(features_dir, class_labels[class_id] + '_ranklist.out'), 'w')
         for m in sorted(medians[class_id], key=medians[class_id].__getitem__):
             f.write(m + ',')
         f.close()
 
-        f = open('feature_extraction/' + class_labels[class_id] + '_medians.out', 'w')
+        f = open(os.path.join(features_dir, class_labels[class_id] + '_medians.out'), 'w')
         for m in rankings[class_id]:
             f.write(m + '\t' + str(rankings[class_id][m]) + '\n')
         f.close()
 
-        f = open('feature_extraction/' + class_labels[class_id] + '_scores.out', 'w')
+        f = open(os.path.join(features_dir, class_labels[class_id] + '_scores.out'), 'w')
         for m in scores[class_id]:
             f.write(m + '\t' + str(scores[class_id][m]) + '\n')
         f.close()
@@ -234,7 +235,7 @@ def feature_map_stats(model_dir, i):
 
 
 def main():
-    result_dir = os.path.join(os.pardir, 'result', '400e_model_nofc', args.dataset)
+    result_dir = os.path.join(os.pardir, args.result_dir, args.dataset)
     g_node_names = g.get_dictionary()
     rankings, scores = init_feature_scores(g_node_names)
     for file in os.listdir(result_dir):
@@ -250,7 +251,7 @@ def main():
                     else:
                         rankings[class_id][j].append(rank.shape[0] + 1)
                         scores[class_id][j].append(0)
-    write_features_scores(rankings, scores)
+    write_features_scores(rankings, scores, result_dir)
 
 
 main()
